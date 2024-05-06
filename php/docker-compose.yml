@@ -1,0 +1,8 @@
+services:
+  simple-web-proxy-sample-php:
+    image: simple-web-proxy-sample-php
+    build: .
+    volumes:
+      - ./src:/var/www/html
+    ports:
+      - 8080:8080
