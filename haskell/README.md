@@ -3,7 +3,7 @@
 ## ビルド
 haskellディレクトリで以下のコマンドを実行する
 ```
-stack install
+stack build
 ```
 
 ## 実行
