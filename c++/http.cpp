@@ -75,7 +75,9 @@ HTTPBody parse_transfer_encoding(Connection& conn) {
         char chunk_size_buf[i + 1];
         memcpy(chunk_size_buf, line_buf, i);
         chunk_size_buf[i] = '\0';
-        size_t chunk_size = atol(chunk_size_buf);
+        size_t chunk_size = std::stoul(chunk_size_buf, nullptr, 16);
+
+        std::copy(line_buf, line_buf + strlen(line_buf), std::back_inserter(body));
 
         if(chunk_size == 0) {
             while (true) {
@@ -94,7 +96,6 @@ HTTPBody parse_transfer_encoding(Connection& conn) {
             memset(line_buf2, 0, MAX_LINE_LENGTH + 1);
             conn.readline(line_buf2, MAX_LINE_LENGTH);
 
-            std::copy(line_buf, line_buf + strlen(line_buf), std::back_inserter(body));
             std::copy(chunk, chunk + chunk_size, std::back_inserter(body));
             std::copy(line_buf2, line_buf2 + strlen(line_buf2), std::back_inserter(body));
         }

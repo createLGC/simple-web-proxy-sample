@@ -6,7 +6,7 @@ OBJS = $(SRCS:.cpp=.o)
 
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $^
-	-rm -f $(OBJS)
+	$(RM) $(OBJS)
 
 $(OBJS): $(SRCS)
 	$(CC) $(CPPFLAGS) -c $(SRCS)
@@ -15,4 +15,4 @@ run:
 	./$(TARGET)
 
 clean:
-	-rm -f $(OBJS) $(TARGET)
+	$(RM) $(OBJS) $(TARGET)
