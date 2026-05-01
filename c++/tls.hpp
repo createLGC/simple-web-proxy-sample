@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <iostream>
 #include <vector>
-#include <list>
 
 #include "connection.hpp"
 
@@ -36,7 +35,7 @@ public:
     std::vector<uint8_t> fragment;
     
     TLSRecord(Connection& conn);
-    void write(Connection& conn);
+    void write(Connection& conn) const;
 };
 
 std::ostream& operator<<(std::ostream& out, const TLSRecord& record);

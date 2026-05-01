@@ -52,12 +52,11 @@ TLSRecord::TLSRecord(Connection& conn) {
     conn.read(&length, 2, 1);
     length = ntohs(length);
     
-    uint8_t buf[length];
-    conn.read(buf, 1, length);
-    fragment = std::vector<uint8_t>(buf, buf + length);
+    fragment.resize(length);
+    conn.read(fragment.data(), 1, length);
 }
 
-void TLSRecord::write(Connection& conn) {
+void TLSRecord::write(Connection& conn) const {
     conn.write(&type, 1, 1);
     uint16_t _version = htons(static_cast<uint16_t>(version));
     conn.write(&_version, 2, 1);

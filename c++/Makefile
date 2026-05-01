@@ -1,7 +1,7 @@
 CC = clang++
 CPPFLAGS = -std=c++17
 TARGET = simple-web-proxy-sample
-SRCS = main.cpp connection.cpp tls.cpp http.cpp url.cpp util.cpp
+SRCS = main.cpp connection.cpp tls.cpp http.cpp url.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 $(TARGET): $(OBJS)

@@ -6,7 +6,7 @@
 
 #define MAX_LINE_LENGTH 1048575
 
-std::tuple<std::string, std::string, std::string> parse_first_line(Connection& conn) {
+static std::tuple<std::string, std::string, std::string> parse_first_line(Connection& conn) {
     char line_buf[MAX_LINE_LENGTH + 1];
     memset(line_buf, 0, MAX_LINE_LENGTH + 1);
     
@@ -30,11 +30,11 @@ std::tuple<std::string, std::string, std::string> parse_first_line(Connection& c
     return std::make_tuple(first, second, third);
 }
 
-std::list<HTTPHeader> parse_headers(Connection& conn) {
+static std::vector<HTTPHeader> parse_headers(Connection& conn) {
     char line_buf[MAX_LINE_LENGTH + 1];
     memset(line_buf, 0, MAX_LINE_LENGTH + 1);
 
-    std::list<HTTPHeader> headers;
+    std::vector<HTTPHeader> headers;
 
     while(true) {
         memset(line_buf, 0, MAX_LINE_LENGTH + 1);
@@ -62,7 +62,7 @@ std::list<HTTPHeader> parse_headers(Connection& conn) {
     return headers;
 }
 
-HTTPBody parse_transfer_encoding(Connection& conn) {
+static HTTPBody parse_transfer_encoding(Connection& conn) {
     HTTPBody body;
     while (true) {
         char line_buf[MAX_LINE_LENGTH + 1];
@@ -72,10 +72,10 @@ HTTPBody parse_transfer_encoding(Connection& conn) {
         size_t i = 0;
         for(; line_buf[i] != ';' && line_buf[i] != '\r' && line_buf[i] != '\0' && i <= MAX_LINE_LENGTH; i++);
         
-        char chunk_size_buf[i + 1];
-        memcpy(chunk_size_buf, line_buf, i);
+        std::vector<char> chunk_size_buf(i + 1);
+        memcpy(chunk_size_buf.data(), line_buf, i);
         chunk_size_buf[i] = '\0';
-        size_t chunk_size = std::stoul(chunk_size_buf, nullptr, 16);
+        size_t chunk_size = std::stoul(chunk_size_buf.data(), nullptr, 16);
 
         std::copy(line_buf, line_buf + strlen(line_buf), std::back_inserter(body));
 
@@ -89,21 +89,21 @@ HTTPBody parse_transfer_encoding(Connection& conn) {
             }
             break;
         } else {
-            uint8_t chunk[chunk_size];
-            conn.read(chunk, 1, chunk_size);
+            std::vector<uint8_t> chunk(chunk_size);
+            conn.read(chunk.data(), 1, chunk_size);
 
             char line_buf2[MAX_LINE_LENGTH + 1];
             memset(line_buf2, 0, MAX_LINE_LENGTH + 1);
             conn.readline(line_buf2, MAX_LINE_LENGTH);
 
-            std::copy(chunk, chunk + chunk_size, std::back_inserter(body));
+            std::copy(chunk.cbegin(), chunk.cend(), std::back_inserter(body));
             std::copy(line_buf2, line_buf2 + strlen(line_buf2), std::back_inserter(body));
         }
     }
     return body;
 }
 
-HTTPBody parse_body(Connection& conn, std::list<HTTPHeader>& headers) {
+HTTPBody parse_body(Connection& conn, std::vector<HTTPHeader>& headers) {
     HTTPBody body;
 
     size_t body_size = 0;
@@ -122,9 +122,8 @@ HTTPBody parse_body(Connection& conn, std::list<HTTPHeader>& headers) {
     if(transfer_encoding) {
         body = parse_transfer_encoding(conn);
     } else if(body_size > 0) {
-        char buf[body_size];
-        conn.read(buf, 1, body_size);
-        body = HTTPBody(buf, buf + body_size);
+        body.resize(body_size);
+        conn.read(body.data(), 1, body_size);
     }
 
     return body;
@@ -140,7 +139,7 @@ HTTP1Request::HTTP1Request(Connection& conn) {
     body = parse_body(conn, headers);
 }
 
-void HTTP1Request::write(Connection& conn) {
+void HTTP1Request::write(Connection& conn) const {
     conn.writeline("%s %s %s\r", method.c_str(), url.c_str(), version.c_str());
     for(auto header: headers) {
         conn.writeline("%s: %s\r", header.first.c_str(), header.second.c_str());
@@ -164,7 +163,7 @@ std::ostream& operator<<(std::ostream& out, const HTTP1Request& request) {
     return out;
 }
 
-HTTP1Response::HTTP1Response(std::string version, std::string status_code, std::string status_text, std::list<HTTPHeader> headers, HTTPBody body): version(version), status_code(status_code), status_text(status_text), headers(headers), body(body) {}
+HTTP1Response::HTTP1Response(std::string version, std::string status_code, std::string status_text, std::vector<HTTPHeader> headers, HTTPBody body): version(version), status_code(status_code), status_text(status_text), headers(headers), body(body) {}
 
 HTTP1Response::HTTP1Response(Connection& conn) {
     auto [version, status_code, status_text] = parse_first_line(conn);
@@ -176,7 +175,7 @@ HTTP1Response::HTTP1Response(Connection& conn) {
     body = parse_body(conn, headers);
 }
 
-void HTTP1Response::write(Connection& conn) {
+void HTTP1Response::write(Connection& conn) const {
     conn.writeline("%s %s %s\r", version.c_str(), status_code.c_str(), status_text.c_str());
     for(auto header: headers) {
         conn.writeline("%s: %s\r", header.first.c_str(), header.second.c_str());

@@ -3,14 +3,12 @@
 #include <unistd.h>
 #include "connection.hpp"
 
-Connection::Connection(int fd): fd(fd) {
-    reader = fdopen(fd, "r");
+Connection::Connection(int fd): fd(fd), reader(fdopen(fd, "r")), writer(fdopen(fd, "w")) {
     if(reader == NULL) {
         std::stringstream ss;
         ss << "reader fdopen failed: " << strerror(errno);
         throw ss.str();
     }
-    writer = fdopen(fd, "w");
     if(writer == NULL) {
         std::stringstream ss;
         ss << "writer fdopen failed: " << strerror(errno);
@@ -18,7 +16,7 @@ Connection::Connection(int fd): fd(fd) {
     }
 }
 
-int Connection::fileno() {
+int Connection::fileno() const {
     return fd;
 }
 
@@ -35,7 +33,7 @@ void Connection::read(void* ptr, size_t size, size_t nitems) {
     }
 }
 
-void Connection::write(void* ptr, size_t size, size_t nitems) {
+void Connection::write(const void* ptr, size_t size, size_t nitems) {
     size_t ret = fwrite(ptr, size, nitems, writer);
     if(ret < nitems) {
         if(ferror(writer)) {

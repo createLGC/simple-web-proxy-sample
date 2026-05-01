@@ -70,7 +70,7 @@ static std::pair<std::string, std::string> cutHostAndPort(std::string& urlString
     return {host, port};
 }
 
-static std::list<std::string> cutPath(std::string& urlString) {
+static std::vector<std::string> cutPath(std::string& urlString) {
     std::string pathString;
     size_t questionIndex = urlString.find("?");
     if(questionIndex == std::string::npos) {
@@ -81,7 +81,7 @@ static std::list<std::string> cutPath(std::string& urlString) {
         urlString.erase(0, questionIndex + 1); //クエリの先頭の?も消してる
     }
     
-    std::list<std::string> path;
+    std::vector<std::string> path;
     std::stringstream ss{pathString};
     while (true) {
         std::string _path;
@@ -93,7 +93,7 @@ static std::list<std::string> cutPath(std::string& urlString) {
     return path;
 }
 
-static std::list<std::pair<std::string, std::string>> cutQuery(std::string& urlString) {
+static std::vector<std::pair<std::string, std::string>> cutQuery(std::string& urlString) {
     std::string queryString;
     size_t hashIndex = urlString.find("#");
     if(hashIndex == std::string::npos) {
@@ -104,7 +104,7 @@ static std::list<std::pair<std::string, std::string>> cutQuery(std::string& urlS
         urlString.erase(0, hashIndex + 1); //#も消してる
     }
     
-    std::list<std::pair<std::string, std::string>> query;
+    std::vector<std::pair<std::string, std::string>> query;
     std::stringstream ss{queryString};
     while (true) {
         std::string _query;
@@ -145,9 +145,9 @@ URL::URL(std::string urlString) {
     this->anchor = anchor;
 }
 
-URL::URL(std::string scheme, std::string user, std::string password, std::string host, std::string port, std::list<std::string> path, std::list<std::pair<std::string, std::string>> query, std::string anchor): scheme(scheme), user(user), password(password), host(host), port(port), path(path), query(query), anchor(anchor) {}
+URL::URL(std::string scheme, std::string user, std::string password, std::string host, std::string port, std::vector<std::string> path, std::vector<std::pair<std::string, std::string>> query, std::string anchor): scheme(scheme), user(user), password(password), host(host), port(port), path(path), query(query), anchor(anchor) {}
 
-URL URL::pathAndQuery() {
+URL URL::pathAndQuery() const {
     return URL("", "", "", "", "", path, query, "");
 }
 

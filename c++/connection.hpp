@@ -9,18 +9,17 @@
 
 class Connection {
 private:
-    int fd;
-    FILE* reader;
-    FILE* writer;
+    const int fd;
+    FILE* const reader;
+    FILE* const writer;
     
 public:
-    Connection() {}
     Connection(int fd);
     
-    int fileno();
+    int fileno() const;
     
     void read(void* ptr, size_t size, size_t nitems);
-    void write(void* ptr, size_t size, size_t nitems);
+    void write(const void* ptr, size_t size, size_t nitems);
     
     void readline(char* buf, int size);
     void writeline(const char *format, ...);

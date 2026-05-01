@@ -6,6 +6,7 @@
 #include <netdb.h>
 #include <signal.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "http.hpp"
 #include "tls.hpp"
@@ -59,7 +60,7 @@ void tls_relay(Connection& src, Connection& dst) {
     TLSRecord(src).write(dst);
 }
 
-inline bool is_proxy_header(const HTTPHeader& header) {
+static bool is_proxy_header(const HTTPHeader& header) {
     return str_eq_case_ins(header.first.substr(0, 5), "Proxy");
 }
 
@@ -68,7 +69,8 @@ void unproxify(HTTP1Request& request) {
     URL url = URL(request.url);
     ss << url.pathAndQuery();
     request.url = ss.str();
-    request.headers.remove_if(is_proxy_header);
+    auto result = std::remove_if(request.headers.begin(), request.headers.end(), is_proxy_header);
+    request.headers.erase(result, request.headers.end());
 }
 
 void http_relay(Connection& client, Connection& server, HTTP1Request* request) {
@@ -114,23 +116,27 @@ HTTP1Response create_error_response(std::string error) {
 }
 
 void start_relay(int client_fd) {
-    Connection client;
+    std::unique_ptr<Connection> client_p, server_p;
     HTTP1Request request;
     URL url;
-    Connection server;
     try {
-        client = Connection(client_fd);
-        request = HTTP1Request(client);
+        client_p = std::make_unique<Connection>(client_fd);
+        request = HTTP1Request(*client_p);
         url = URL(request.url);
         std::string host = url.host;
         int port = url.port.empty() ? 80 : std::stoi(url.port);
         int server_fd = connect_to_server(host, port);
-        server = Connection(server_fd);
+        server_p = std::make_unique<Connection>(server_fd);
     } catch(std::string& error) {
         std::cerr << "ERROR " << error << std::endl;
-        create_error_response(error).write(client);
-        goto SHUTDOWN;
+        if(client_p) {
+            create_error_response(error).write(*client_p);
+            client_p->shutdown();
+        }
+        assert(server_p == nullptr);
+        throw error;
     }
+    Connection client = *client_p, server = *server_p;
     std::cerr << "OPEN  " << url << std::endl;
     if(request.method.compare("CONNECT") == 0) {
         HTTP1Response("HTTP/1.1", "200", "Connection established", {}, {}).write(client);
@@ -167,7 +173,6 @@ void start_relay(int client_fd) {
             std::cerr << "CLOSE " << url << " " << error << std::endl;
         }
     }
-SHUTDOWN:
     client.shutdown();
     server.shutdown();
 }
