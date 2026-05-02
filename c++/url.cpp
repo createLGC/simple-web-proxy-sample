@@ -1,5 +1,6 @@
-#include <sstream>
 #include "url.hpp"
+
+#include <sstream>
 
 static std::string cutScheme(std::string& urlString) {
     size_t schemeSeparatorIndex = urlString.find("//");
@@ -74,8 +75,14 @@ static std::vector<std::string> cutPath(std::string& urlString) {
     std::string pathString;
     size_t questionIndex = urlString.find("?");
     if(questionIndex == std::string::npos) {
-        pathString = urlString;
-        urlString.erase();
+        size_t hashIndex = urlString.find("#");
+        if(hashIndex == std::string::npos) {
+            pathString = urlString;
+            urlString.erase();
+        } else {
+            pathString = urlString.substr(0, hashIndex);
+            urlString.erase(0, hashIndex); //#はクエリの読み取り工程まで置いておく
+        }
     } else {
         pathString = urlString.substr(0, questionIndex);
         urlString.erase(0, questionIndex + 1); //クエリの先頭の?も消してる
@@ -93,7 +100,7 @@ static std::vector<std::string> cutPath(std::string& urlString) {
     return path;
 }
 
-static std::vector<std::pair<std::string, std::string>> cutQuery(std::string& urlString) {
+static std::multimap<std::string, std::string> cutQuery(std::string& urlString) {
     std::string queryString;
     size_t hashIndex = urlString.find("#");
     if(hashIndex == std::string::npos) {
@@ -104,12 +111,15 @@ static std::vector<std::pair<std::string, std::string>> cutQuery(std::string& ur
         urlString.erase(0, hashIndex + 1); //#も消してる
     }
     
-    std::vector<std::pair<std::string, std::string>> query;
+    std::multimap<std::string, std::string> query;
     std::stringstream ss{queryString};
     while (true) {
         std::string _query;
         std::getline(ss, _query, '&');
-        if(_query.empty()) break;
+        if(_query.empty()) {
+            if(ss.eof()) break;
+            else continue;
+        }
         std::string key;
         std::string value;
         size_t equalIndex = _query.find("=");
@@ -121,7 +131,7 @@ static std::vector<std::pair<std::string, std::string>> cutQuery(std::string& ur
                 value = _query.substr(equalIndex + 1);
             }
         }
-        query.push_back({key, value});
+        query.emplace(key, value);
     }
 
     return query;
@@ -145,10 +155,14 @@ URL::URL(std::string urlString) {
     this->anchor = anchor;
 }
 
-URL::URL(std::string scheme, std::string user, std::string password, std::string host, std::string port, std::vector<std::string> path, std::vector<std::pair<std::string, std::string>> query, std::string anchor): scheme(scheme), user(user), password(password), host(host), port(port), path(path), query(query), anchor(anchor) {}
+URL::URL(std::string scheme, std::string user, std::string password, std::string host, std::string port, std::vector<std::string> path, std::multimap<std::string, std::string> query, std::string anchor): scheme(scheme), user(user), password(password), host(host), port(port), path(path), query(query), anchor(anchor) {}
 
 URL URL::pathAndQuery() const {
     return URL("", "", "", "", "", path, query, "");
+}
+
+bool operator==(const URL& l, const URL& r) {
+    return l.scheme == r.scheme && l.user == r.user && l.password == r.password && l.host == r.host && l.port == r.port && l.path == r.path && l.query == r.query && l.anchor == r.anchor;
 }
 
 std::ostream& operator<<(std::ostream& out, const URL& url) {

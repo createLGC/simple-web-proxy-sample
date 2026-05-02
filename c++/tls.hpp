@@ -1,12 +1,10 @@
 #ifndef tls_hpp
 #define tls_hpp
 
-#include <stdio.h>
-#include <stdint.h>
+#include "connection.hpp"
+
 #include <iostream>
 #include <vector>
-
-#include "connection.hpp"
 
 enum class TLSContentType: uint8_t {
     invalid = 0,

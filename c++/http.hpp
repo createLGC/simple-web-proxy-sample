@@ -1,10 +1,10 @@
 #ifndef http_hpp
 #define http_hpp
 
-#include <stdio.h>
+#include "connection.hpp"
+
 #include <string>
 #include <vector>
-#include "connection.hpp"
 
 using HTTPHeader = std::pair<std::string, std::string>;
 using HTTPBody = std::vector<uint8_t>;

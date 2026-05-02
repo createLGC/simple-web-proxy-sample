@@ -1,11 +1,7 @@
 #ifndef connection_hpp
 #define connection_hpp
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdarg.h>
-#include <vector>
-#include <mutex>
+#include <cstdio>
 
 class Connection {
 private:
@@ -15,6 +11,7 @@ private:
     
 public:
     Connection(int fd);
+    ~Connection();
     
     int fileno() const;
     

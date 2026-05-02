@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <thread>
 #include <sys/socket.h>
@@ -6,7 +7,6 @@
 #include <netdb.h>
 #include <signal.h>
 #include <unistd.h>
-#include <assert.h>
 
 #include "http.hpp"
 #include "tls.hpp"
@@ -138,7 +138,7 @@ void start_relay(int client_fd) {
     }
     Connection client = *client_p, server = *server_p;
     std::cerr << "OPEN  " << url << std::endl;
-    if(request.method.compare("CONNECT") == 0) {
+    if(request.method == "CONNECT") {
         HTTP1Response("HTTP/1.1", "200", "Connection established", {}, {}).write(client);
         std::thread client_to_server([&url, &client, &server]() {
             try {

@@ -1,8 +1,8 @@
-#include <iostream>
-#include <sstream>
-#include <iomanip>
 #include "http.hpp"
 #include "util.hpp"
+
+#include <iostream>
+#include <sstream>
 
 #define MAX_LINE_LENGTH 1048575
 
@@ -16,15 +16,15 @@ static std::tuple<std::string, std::string, std::string> parse_first_line(Connec
     std::stringstream first_line{std::string(line_buf)};
     
     std::string first;
-    getline(first_line, first, ' ');
+    std::getline(first_line, first, ' ');
     trim(first);
     
     std::string second;
-    getline(first_line, second, ' ');
+    std::getline(first_line, second, ' ');
     trim(second);
     
     std::string third;
-    getline(first_line, third);
+    std::getline(first_line, third);
     trim(third);
 
     return std::make_tuple(first, second, third);
@@ -49,11 +49,11 @@ static std::vector<HTTPHeader> parse_headers(Connection& conn) {
         std::stringstream line{line_buf_str};
         
         std::string key;
-        getline(line, key, ':');
+        std::getline(line, key, ':');
         trim(key);
         
         std::string value;
-        getline(line, value);
+        std::getline(line, value);
         trim(value);
         
         headers.push_back({key, value});
@@ -103,7 +103,7 @@ static HTTPBody parse_transfer_encoding(Connection& conn) {
     return body;
 }
 
-HTTPBody parse_body(Connection& conn, std::vector<HTTPHeader>& headers) {
+static HTTPBody parse_body(Connection& conn, std::vector<HTTPHeader>& headers) {
     HTTPBody body;
 
     size_t body_size = 0;

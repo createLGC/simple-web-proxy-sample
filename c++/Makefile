@@ -1,18 +1,25 @@
 CC = clang++
+
 CPPFLAGS = -std=c++17
-TARGET = simple-web-proxy-sample
 SRCS = main.cpp connection.cpp tls.cpp http.cpp url.cpp
-OBJS = $(SRCS:.cpp=.o)
+TARGET = simple-web-proxy-sample
 
-$(TARGET): $(OBJS)
-	$(CC) -o $@ $^
-	$(RM) $(OBJS)
+TEST_DIR = ./test
+TEST_CPPFLAGS = $(CPPFLAGS) -e _test_main
+TEST_SRCS = $(wildcard $(TEST_DIR)/*.cpp) $(SRCS)
+TEST_TARGET = simple-web-proxy-sample-test
 
-$(OBJS): $(SRCS)
-	$(CC) $(CPPFLAGS) -c $(SRCS)
+$(TARGET): $(SRCS)
+	$(CC) $(CPPFLAGS) -o $@ $^
 
 run:
 	./$(TARGET)
 
+$(TEST_TARGET): $(TEST_SRCS)
+	$(CC) $(TEST_CPPFLAGS) -o $(TEST_TARGET) $(TEST_SRCS)
+
+test: $(TEST_TARGET)
+	./$(TEST_TARGET)
+
 clean:
-	$(RM) $(OBJS) $(TARGET)
+	$(RM) $(OBJS) $(TARGET) $(TEST_TARGET)

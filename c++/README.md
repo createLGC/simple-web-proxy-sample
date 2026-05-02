@@ -12,4 +12,4 @@ make
 ```
 make run
 ```
-**※** Mac mini M1 macOS Sonoma 14.4.1でしか動作確認しておりませんが、OS依存のコードはないと思うのでUnix系OSであれば動くはずです
+**※** Mac mini M1 macOS Tahoe 26.4.1でしか動作確認しておりませんが、OS依存のコードはないと思うのでUnix系OSであれば動くはずです

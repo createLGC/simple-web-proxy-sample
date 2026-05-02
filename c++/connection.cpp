@@ -1,7 +1,8 @@
-#include <iostream>
+#include "connection.hpp"
+
+#include <cstdarg>
 #include <sstream>
 #include <unistd.h>
-#include "connection.hpp"
 
 Connection::Connection(int fd): fd(fd), reader(fdopen(fd, "r")), writer(fdopen(fd, "w")) {
     if(reader == NULL) {
@@ -14,6 +15,10 @@ Connection::Connection(int fd): fd(fd), reader(fdopen(fd, "r")), writer(fdopen(f
         ss << "writer fdopen failed: " << strerror(errno);
         throw ss.str();
     }
+}
+
+Connection::~Connection() {
+    shutdown();
 }
 
 int Connection::fileno() const {
