@@ -20,12 +20,4 @@ inline void trim(std::string& str) {
     ltrim(str);
 }
 
-inline bool ch_eq_case_ins(char a, char b) {
-    return(tolower(a) == tolower(b));
-}
-
-inline bool str_eq_case_ins(const std::string& s1, const std::string& s2) {
-    return((s1.size() == s2.size()) && equal(s1.begin(), s1.end(), s2.begin(), ch_eq_case_ins));
-}
-
 #endif

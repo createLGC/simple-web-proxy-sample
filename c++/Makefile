@@ -1,7 +1,7 @@
 CC = clang++
 
 CPPFLAGS = -std=c++17
-SRCS = main.cpp connection.cpp tls.cpp http.cpp url.cpp
+SRCS = main.cpp connection.cpp tls.cpp http.cpp url.cpp server.cpp
 TARGET = simple-web-proxy-sample
 
 TEST_DIR = ./test

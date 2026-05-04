@@ -1,22 +1,25 @@
-#include "util_test.hpp"
-#include "url_test.hpp"
-#include "http_test.hpp"
+#include <iostream>
+
+void test_util();
+void test_url();
+void test_http();
+void test_tls();
+void test_server();
 
 extern "C" int test_main() {
     try {
 
-    test_ltrim();
-    test_rtrim();
-    test_trim();
-    test_ch_eq_case_ins();
-    test_str_eq_case_ins();
+        test_util();
 
-    test_cmp_URL();
-    test_URL();
+        test_url();
 
-    test_HTTP1Request();
+        test_http();
 
-    std::cerr << "test complete!" << std::endl;
+        test_tls();
+
+        test_server();
+
+        std::cerr << "test complete!" << std::endl;
 
     } catch(const std::string& error) {
         std::cerr << error << std::endl;

@@ -1,5 +1,6 @@
 #include "http.hpp"
 #include "util.hpp"
+#include "url.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -7,13 +8,9 @@
 #define MAX_LINE_LENGTH 1048575
 
 static std::tuple<std::string, std::string, std::string> parse_first_line(Connection& conn) {
-    char line_buf[MAX_LINE_LENGTH + 1];
-    memset(line_buf, 0, MAX_LINE_LENGTH + 1);
+    auto line = conn.readline();
     
-    conn.readline(line_buf, MAX_LINE_LENGTH);
-    if(strlen(line_buf) == MAX_LINE_LENGTH) throw std::string("too long first line");
-    
-    std::stringstream first_line{std::string(line_buf)};
+    std::stringstream first_line{line};
     
     std::string first;
     std::getline(first_line, first, ' ');
@@ -30,33 +27,29 @@ static std::tuple<std::string, std::string, std::string> parse_first_line(Connec
     return std::make_tuple(first, second, third);
 }
 
-static std::vector<HTTPHeader> parse_headers(Connection& conn) {
-    char line_buf[MAX_LINE_LENGTH + 1];
-    memset(line_buf, 0, MAX_LINE_LENGTH + 1);
-
-    std::vector<HTTPHeader> headers;
+static std::multimap<std::string, std::string> parse_headers(Connection& conn) {
+    std::multimap<std::string, std::string> headers;
 
     while(true) {
-        memset(line_buf, 0, MAX_LINE_LENGTH + 1);
-        conn.readline(line_buf, MAX_LINE_LENGTH);
-        if(strlen(line_buf) == MAX_LINE_LENGTH) throw std::string("too long header line");
+        auto line = conn.readline();
         
-        std::string line_buf_str = line_buf;
-        trim(line_buf_str);
+        auto header_line = line;
+        trim(header_line);
         
-        if(line_buf_str.size() == 0) break;
+        if(header_line.empty()) break;
         
-        std::stringstream line{line_buf_str};
+        std::stringstream ss{header_line};
         
         std::string key;
-        std::getline(line, key, ':');
+        std::getline(ss, key, ':');
         trim(key);
+        transform(key.begin(), key.end(), key.begin(), tolower);
         
         std::string value;
-        std::getline(line, value);
+        std::getline(ss, value);
         trim(value);
         
-        headers.push_back({key, value});
+        headers.emplace(key, value);
     }
 
     return headers;
@@ -65,58 +58,51 @@ static std::vector<HTTPHeader> parse_headers(Connection& conn) {
 static HTTPBody parse_transfer_encoding(Connection& conn) {
     HTTPBody body;
     while (true) {
-        char line_buf[MAX_LINE_LENGTH + 1];
-        memset(line_buf, 0, MAX_LINE_LENGTH + 1);
-        conn.readline(line_buf, MAX_LINE_LENGTH);
+        auto line = conn.readline();
+        auto chunk_size_line = line;
+        rtrim(chunk_size_line);
+        size_t chunk_size = std::stoul(chunk_size_line, nullptr, 16);
 
-        size_t i = 0;
-        for(; line_buf[i] != ';' && line_buf[i] != '\r' && line_buf[i] != '\0' && i <= MAX_LINE_LENGTH; i++);
-        
-        std::vector<char> chunk_size_buf(i + 1);
-        memcpy(chunk_size_buf.data(), line_buf, i);
-        chunk_size_buf[i] = '\0';
-        size_t chunk_size = std::stoul(chunk_size_buf.data(), nullptr, 16);
-
-        std::copy(line_buf, line_buf + strlen(line_buf), std::back_inserter(body));
+        std::copy(line.cbegin(), line.cend(), std::back_inserter(body));
 
         if(chunk_size == 0) {
-            while (true) {
-                char line_buf[MAX_LINE_LENGTH + 1];
-                memset(line_buf, 0, MAX_LINE_LENGTH + 1);
-                conn.readline(line_buf, MAX_LINE_LENGTH);
-                std::copy(line_buf, line_buf + strlen(line_buf), std::back_inserter(body));
-                if(line_buf[0] == '\r' && line_buf[1] == '\n' && line_buf[2] == '\0') break;
+            while(true) {
+                auto line = conn.readline();
+                std::copy(line.cbegin(), line.cend(), std::back_inserter(body));
+                if(line == "\r\n") break;
             }
             break;
         } else {
             std::vector<uint8_t> chunk(chunk_size);
             conn.read(chunk.data(), 1, chunk_size);
-
-            char line_buf2[MAX_LINE_LENGTH + 1];
-            memset(line_buf2, 0, MAX_LINE_LENGTH + 1);
-            conn.readline(line_buf2, MAX_LINE_LENGTH);
-
             std::copy(chunk.cbegin(), chunk.cend(), std::back_inserter(body));
-            std::copy(line_buf2, line_buf2 + strlen(line_buf2), std::back_inserter(body));
+
+            auto line = conn.readline();
+            std::copy(line.cbegin(), line.cend(), std::back_inserter(body));
         }
     }
     return body;
 }
 
-static HTTPBody parse_body(Connection& conn, std::vector<HTTPHeader>& headers) {
+static HTTPBody parse_body(Connection& conn, std::multimap<std::string, std::string>& headers) {
     HTTPBody body;
 
     size_t body_size = 0;
     bool transfer_encoding = false;
-    for(auto& header: headers) {
-        if(str_eq_case_ins(header.first, "Content-Length")) {
-            body_size = stol(header.second);
-            break;
+    std::multimap<std::string, std::string>::iterator itr;
+    if((itr = headers.find("content-length")) != headers.end()) {
+        body_size = std::stol(itr->second);
+    } else if((itr = headers.find("transfer-encoding")) != headers.end()){
+        std::stringstream ss{itr->second};
+        std::string value;
+        while(std::getline(ss, value, ','));
+        trim(value);
+        if(value != "chunked") {
+            std::stringstream ss;
+            ss << "not implemented transfer-encoding: " << itr->second;
+            throw ss.str();
         }
-        if(str_eq_case_ins(header.first, "Transfer-Encoding")) {
-            transfer_encoding = true;
-            break;
-        }
+        transfer_encoding = true;
     }
     
     if(transfer_encoding) {
@@ -129,6 +115,8 @@ static HTTPBody parse_body(Connection& conn, std::vector<HTTPHeader>& headers) {
     return body;
 }
 
+HTTP1Request::HTTP1Request(std::string method, std::string url, std::string version, std::multimap<std::string, std::string> headers, HTTPBody body): method(method), url(url), version(version), headers(headers), body(body) {}
+
 HTTP1Request::HTTP1Request(Connection& conn) {
     auto [method, url, version] = parse_first_line(conn);
     this->method = method;
@@ -139,14 +127,32 @@ HTTP1Request::HTTP1Request(Connection& conn) {
     body = parse_body(conn, headers);
 }
 
-void HTTP1Request::write(Connection& conn) const {
-    conn.writeline("%s %s %s\r", method.c_str(), url.c_str(), version.c_str());
-    for(auto header: headers) {
-        conn.writeline("%s: %s\r", header.first.c_str(), header.second.c_str());
+void HTTP1Request::unproxify() {
+    std::stringstream ss;
+    URL url = URL(this->url);
+    ss << url.pathAndQuery();
+    this->url = ss.str();
+    for(auto itr = headers.begin(); itr != headers.end();) {
+        if(std::equal(itr->first.begin(), itr->first.begin() + 5, "proxy")) {
+            itr = headers.erase(itr);
+        } else {
+            itr++;
+        }
     }
-    conn.writeline("\r");
+}
+
+void HTTP1Request::operator>>(Connection& conn) const {
+    conn.write("%s %s %s\r\n", method.c_str(), url.c_str(), version.c_str());
+    for(auto header: headers) {
+        conn.write("%s: %s\r\n", header.first.c_str(), header.second.c_str());
+    }
+    conn.write("\r\n");
     if(body.size() > 0) conn.write(body.data(), 1, body.size());
     conn.flush();
+}
+
+void operator<<(Connection& conn, const HTTP1Request& request) {
+    request >> conn;
 }
 
 std::ostream& operator<<(std::ostream& out, const HTTP1Request& request) {
@@ -163,7 +169,7 @@ std::ostream& operator<<(std::ostream& out, const HTTP1Request& request) {
     return out;
 }
 
-HTTP1Response::HTTP1Response(std::string version, std::string status_code, std::string status_text, std::vector<HTTPHeader> headers, HTTPBody body): version(version), status_code(status_code), status_text(status_text), headers(headers), body(body) {}
+HTTP1Response::HTTP1Response(std::string version, std::string status_code, std::string status_text, std::multimap<std::string, std::string> headers, HTTPBody body): version(version), status_code(status_code), status_text(status_text), headers(headers), body(body) {}
 
 HTTP1Response::HTTP1Response(Connection& conn) {
     auto [version, status_code, status_text] = parse_first_line(conn);
@@ -175,14 +181,18 @@ HTTP1Response::HTTP1Response(Connection& conn) {
     body = parse_body(conn, headers);
 }
 
-void HTTP1Response::write(Connection& conn) const {
-    conn.writeline("%s %s %s\r", version.c_str(), status_code.c_str(), status_text.c_str());
+void HTTP1Response::operator>>(Connection& conn) const {
+    conn.write("%s %s %s\r\n", version.c_str(), status_code.c_str(), status_text.c_str());
     for(auto header: headers) {
-        conn.writeline("%s: %s\r", header.first.c_str(), header.second.c_str());
+        conn.write("%s: %s\r\n", header.first.c_str(), header.second.c_str());
     }
-    conn.writeline("\r");
+    conn.write("\r\n");
     if(body.size() > 0) conn.write(body.data(), 1, body.size());
     conn.flush();
+}
+
+void operator<<(Connection& conn, const HTTP1Response& response) {
+    response >> conn;
 }
 
 std::ostream& operator<<(std::ostream& out, const HTTP1Response& response) {

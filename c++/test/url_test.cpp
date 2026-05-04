@@ -3,7 +3,7 @@
 #include <cassert>
 #include <iostream>
 
-void test_cmp_URL() {
+static void test_cmp_URL() {
     auto url = URL(
         "scheme",
         "user",
@@ -17,7 +17,7 @@ void test_cmp_URL() {
     assert(url == url);
 }
 
-void test_URL() {
+static void test_URL() {
     assert(URL("https") == URL("", "", "", "https", "", {}, {}, ""));
     assert(URL("https:") == URL("", "", "", "https", "", {}, {}, ""));
     assert(URL("https://") == URL("https", "", "", "", "", {}, {}, ""));
@@ -59,4 +59,11 @@ void test_URL() {
     assert(URL("https://user:password@host:port/あああ/いいい#a") == URL("https", "user", "password", "host", "port", {"あああ", "いいい"}, {}, "a"));
     assert(URL("https://user:password@host:port/あああ/いいい/#a") == URL("https", "user", "password", "host", "port", {"あああ", "いいい"}, {}, "a"));
     assert(URL("https://user:password@host:port/あああ/いいい/?a=b&a=c&d=e#anchor") == URL("https", "user", "password", "host", "port", {"あああ", "いいい"}, { {"a", "b"}, {"a", "c"}, {"d", "e"} }, "anchor"));
+}
+
+void test_url() {
+    std::cerr << "****** start test_url ******" << std::endl;
+    test_cmp_URL();
+    test_URL();
+    std::cerr << "****** end test_url ******" << std::endl;
 }

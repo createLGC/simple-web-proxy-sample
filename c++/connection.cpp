@@ -1,6 +1,8 @@
 #include "connection.hpp"
 
+#include <cassert>
 #include <cstdarg>
+#include <iostream>
 #include <sstream>
 #include <unistd.h>
 
@@ -49,20 +51,7 @@ void Connection::write(const void* ptr, size_t size, size_t nitems) {
     }
 }
 
-void Connection::readline(char* buf, int size) {
-    char* ret = fgets(buf, size, reader);
-    if(ret == NULL) {
-        if(ferror(reader)) {
-            std::stringstream ss;
-            ss << "fgets failed: " << strerror(errno);
-            throw ss.str();
-        } else if(feof(reader)) {
-            throw std::string("connection closed");
-        }
-    }
-}
-
-void Connection::writeline(const char* format, ...) {
+void Connection::write(const char* format, ...) {
     va_list list;
     va_start(list, format);
     int ret = vfprintf(writer, format, list);
@@ -71,8 +60,30 @@ void Connection::writeline(const char* format, ...) {
         ss << "vfprintf failed: " << strerror(errno);
         throw ss.str();
     }
-    putc('\n', writer);
     va_end(list);
+}
+
+std::string Connection::readline() {
+    std::string buf;
+    constexpr size_t BUF_SIZE = 1024;
+    while(true) {
+        std::array<char, BUF_SIZE> _buf{};
+        if(fgets(_buf.data(), BUF_SIZE, reader) == nullptr) {
+            if(ferror(reader)) {
+                std::stringstream ss;
+                ss << "fgets failed: " << strerror(errno);
+                throw ss.str();
+            } else if(feof(reader)) {
+                throw std::string("connection closed");
+            } else {
+                assert(false);
+            }
+        }
+        size_t len = strlen(_buf.data());
+        buf += std::string(_buf.data(), len);
+        if(_buf[len - 1] == '\n') break;
+    }
+    return buf;
 }
 
 void Connection::flush() {

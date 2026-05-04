@@ -33,9 +33,10 @@ public:
     std::vector<uint8_t> fragment;
     
     TLSRecord(Connection& conn);
-    void write(Connection& conn) const;
+    void operator>>(Connection& conn) const;
 };
 
+void operator<<(Connection& conn, const TLSRecord& record);
 std::ostream& operator<<(std::ostream& out, const TLSRecord& record);
 
 #endif
