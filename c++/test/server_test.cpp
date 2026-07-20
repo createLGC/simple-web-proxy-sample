@@ -213,6 +213,97 @@ static void test_http_relay_with_request() {
     assert(response.version == response2.version && response.status_code == response2.status_code && response.status_text == response2.status_text && response.headers == response2.headers && response.body == response2.body);
 }
 
+static void test_start_server_http() {
+    constexpr int proxy_port = 8080;
+    constexpr int server_port = 8081;
+
+    std::stringstream url;
+    url << "http://localhost:" << server_port << "/path1/path2?a=b&c=d";
+    
+    auto request = HTTP1Request("POST", url.str(), "HTTP/1.1", {{"connection", "keep-alive"}, {"content-length", "5"}}, {'a', 'i', 'u', 'e', 'o'});
+    auto response = HTTP1Response("HTTP/1.1", "200", "OK", {{"connection", "keep-alive"}, {"content-length", "5"}}, {'a', 'i', 'u', 'e', 'o'});
+    FILE* result_fp = tmpfile();
+    create_test_server(server_port, [&request, &response, result_fp](int client_fd){
+        auto client = Connection(client_fd);
+
+        auto received_request = HTTP1Request(client);
+        auto _request = request;
+        _request.unproxify();
+
+        bool result = received_request.method == _request.method && received_request.url == _request.url && received_request.version == _request.version && received_request.headers == _request.headers && received_request.body == _request.body;
+        fwrite(&result, 1, 1, result_fp);
+        fflush(result_fp);
+        fseek(result_fp, 0, SEEK_SET);
+
+        response >> client;
+        client.flush();
+
+        return true;
+    });
+    int server_fd = create_test_client(server_port);
+    auto server_conn = Connection(server_fd);
+
+    int pid = fork();
+    if(pid == 0) {
+        start_server(proxy_port);
+    } else if(pid > 0) {
+        request >> server_conn;
+        auto response2 = HTTP1Response(server_conn);
+        bool result = false;
+        fread(&result, 1, 1, result_fp);
+        fclose(result_fp);
+        assert(result);
+        assert(response.version == response2.version && response.status_code == response2.status_code && response.status_text == response2.status_text && response.headers == response2.headers && response.body == response2.body);
+        std::stringstream ss;
+        ss << "lsof -t -i:" << proxy_port << " | xargs kill -9";
+        system(ss.str().c_str());
+    }
+}
+
+static void test_start_server_tls() {
+    constexpr int proxy_port = 8080;
+    constexpr int server_port = 8081;
+
+    const char record_data[] = { 21, 0x03, 0x03, 0, 2, 0, 0 };
+
+    FILE* result_fp = tmpfile();
+    create_test_server(server_port, [&request, &response, result_fp](int client_fd){
+        auto client = Connection(client_fd);
+
+        auto received_request = HTTP1Request(client);
+        auto _request = request;
+        _request.unproxify();
+
+        bool result = received_request.method == _request.method && received_request.url == _request.url && received_request.version == _request.version && received_request.headers == _request.headers && received_request.body == _request.body;
+        fwrite(&result, 1, 1, result_fp);
+        fflush(result_fp);
+        fseek(result_fp, 0, SEEK_SET);
+
+        response >> client;
+        client.flush();
+
+        return true;
+    });
+    int server_fd = create_test_client(server_port);
+    auto server_conn = Connection(server_fd);
+
+    int pid = fork();
+    if(pid == 0) {
+        start_server(proxy_port);
+    } else if(pid > 0) {
+        request >> server_conn;
+        auto response2 = HTTP1Response(server_conn);
+        bool result = false;
+        fread(&result, 1, 1, result_fp);
+        fclose(result_fp);
+        assert(result);
+        assert(response.version == response2.version && response.status_code == response2.status_code && response.status_text == response2.status_text && response.headers == response2.headers && response.body == response2.body);
+        std::stringstream ss;
+        ss << "lsof -t -i:" << proxy_port << " | xargs kill -9";
+        system(ss.str().c_str());
+    }
+}
+
 void test_server() {
     std::cerr << "****** start test_server ******" << std::endl;
     test_resolve_host();

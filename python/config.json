@@ -1,0 +1,49 @@
+{
+  "acl": [
+    {
+      "on": true,
+      "value": "127.0.0.1"
+    },
+    {
+      "on": true,
+      "value": "::1"
+    }
+  ],
+  "externalProxy": {
+    "fields": [
+      {
+        "on": true,
+        "value": "get_external_proxy"
+      }
+    ],
+    "on": false
+  },
+  "modifyRequest": {
+    "fields": [
+      {
+        "on": true,
+        "value": "modify_request"
+      }
+    ],
+    "on": false
+  },
+  "modifyResponse": {
+    "fields": [
+      {
+        "on": true,
+        "value": "modify_response"
+      }
+    ],
+    "on": false
+  },
+  "scriptPath": "script.py",
+  "sslProxying": {
+    "fields": [
+      {
+        "on": true,
+        "value": "judge_decrypt"
+      }
+    ],
+    "on": true
+  }
+}

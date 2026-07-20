@@ -226,7 +226,7 @@ void start_server(int port) {
         }
         int pid = fork();
         if(pid < 0) continue;
-        if(pid == 0) {
+        else if(pid == 0) {
             try {
                 start_relay(client_fd);
             } catch(std::string& error) {
@@ -235,6 +235,6 @@ void start_server(int port) {
                 std::cerr << "ERROR" << std::endl;
             }
             exit(0);
-        };
+        }
     }
 }
